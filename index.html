@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Social Blog App</title>
+
+    <style>
+        body {
+            margin: 0;
+            font-family: 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #141e30, #243b55);
+            display: flex;
+            justify-content: center;
+            color: white;
+        }
+
+        .container {
+            width: 420px;
+            padding: 20px;
+        }
+
+        .post-box {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 15px;
+            border-radius: 15px;
+            margin-bottom: 20px;
+        }
+
+        .post-box input {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 10px;
+            border: none;
+            border-radius: 8px;
+        }
+
+        .post-box button {
+            width: 100%;
+            padding: 10px;
+            border: none;
+            border-radius: 8px;
+            background: #ff416c;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 20px;
+            overflow: hidden;
+            margin-bottom: 20px;
+            padding: 15px;
+        }
+
+        .card img {
+            width: 100%;
+            height: 250px;
+            object-fit: cover;
+            border-radius: 15px;
+            margin-bottom: 10px;
+        }
+
+        .actions {
+            display: flex;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 5px;
+            padding: 10px 0;
+        }
+
+        .actions button {
+            background: none;
+            border: none;
+            color: white;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .comments {
+            margin-top: 10px;
+            font-size: 14px;
+        }
+
+        .comment-box {
+            display: flex;
+            gap: 5px;
+            margin-top: 10px;
+        }
+
+        .comment-box input {
+            flex: 1;
+            padding: 6px;
+            border-radius: 8px;
+            border: none;
+        }
+
+        .comment-box button {
+            padding: 6px 10px;
+            border: none;
+            border-radius: 8px;
+            background: #ff416c;
+            color: white;
+            cursor: pointer;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+
+        <div class="post-box">
+            <input id="username" placeholder="Username">
+            <input id="image" placeholder="Image URL">
+            <input id="title" placeholder="Title">
+            <input id="content" placeholder="Content">
+            <button onclick="addPost()">Post</button>
+        </div>
+
+        <div id="posts"></div>
+
+    </div>
+
+    <script>
+
+        const API = "http://localhost:3001";
+        const postsDiv = document.getElementById("posts");
+
+        async function loadPosts() {
+            const res = await fetch(API + "/blogs");
+            const posts = await res.json();
+
+            postsDiv.innerHTML = "";
+
+            posts.forEach(post => {
+                const div = document.createElement("div");
+                div.className = "card";
+
+                div.innerHTML = `
+                    <h4>${post.username || "User"}</h4>
+
+                    <img src="${post.image && post.image.trim() !== ''
+                        ? post.image
+                        : 'https://picsum.photos/400'}"
+                        onerror="this.src='https://picsum.photos/400'">
+
+                    <h3>${post.title}</h3>
+                    <p>${post.content}</p>
+
+                    <div class="actions">
+                        <button onclick="like('${post._id}')">
+                            ❤️ ${post.likes || 0}
+                        </button>
+
+                        <button onclick="dislike('${post._id}')">
+                            👎 ${post.dislikes || 0}
+                        </button>
+
+                        <button onclick="sharePost('${post._id}')">
+                            📤 ${post.shares || 0}
+                        </button>
+
+                        <button onclick="follow('${post._id}')">
+                            ➕ ${post.follows || 0}
+                        </button>
+
+                        <button onclick="deletePost('${post._id}')">
+                            🗑
+                        </button>
+                    </div>
+
+                    <div class="comments">
+                        ${(post.comments || []).map(c =>
+                            `<p><b>${c.username}</b>: ${c.text}</p>`
+                        ).join("")}
+
+                        <div class="comment-box">
+                            <input id="u-${post._id}" placeholder="Your name">
+                            <input id="c-${post._id}" placeholder="Comment">
+                            <button onclick="addComment('${post._id}')">Post</button>
+                        </div>
+                    </div>
+                `;
+
+                postsDiv.appendChild(div);
+            });
+        }
+
+        async function addPost() {
+            const username = document.getElementById("username").value;
+            const image = document.getElementById("image").value;
+            const title = document.getElementById("title").value;
+            const content = document.getElementById("content").value;
+
+            await fetch(API + "/add-blog", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ username, image, title, content })
+            });
+
+            loadPosts();
+        }
+
+        async function like(id) {
+            await fetch(API + "/like-blog/" + id, { method: "POST" });
+            loadPosts();
+        }
+
+        async function dislike(id) {
+            await fetch(API + "/dislike-blog/" + id, { method: "POST" });
+            loadPosts();
+        }
+
+        async function sharePost(id) {
+            await fetch(API + "/share-blog/" + id, { method: "POST" });
+
+            const postURL = window.location.href + "#post-" + id;
+            navigator.clipboard.writeText(postURL);
+            alert("Link copied 🔥");
+
+            loadPosts();
+        }
+
+        async function follow(id) {
+            await fetch(API + "/follow-blog/" + id, { method: "POST" });
+            loadPosts();
+        }
+
+        async function addComment(id) {
+            const username = document.getElementById("u-" + id).value;
+            const text = document.getElementById("c-" + id).value;
+
+            await fetch(API + "/add-comment/" + id, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ username, text })
+            });
+
+            loadPosts();
+        }
+
+        async function deletePost(id) {
+            await fetch(API + "/delete-blog/" + id, { method: "DELETE" });
+            loadPosts();
+        }
+
+        loadPosts();
+
+    </script>
+
+</body>
+
+</html>
